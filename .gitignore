@@ -1,0 +1,25 @@
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+
+# Env variables
+.env
+
+# Runtime files
+pids
+*.pid
+*.seed
+
+# Optional IDE files
+.vscode/
+.idea/
+
+# Docker artifacts (optional)
+*.tar
