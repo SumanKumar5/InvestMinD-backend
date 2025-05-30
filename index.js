@@ -35,7 +35,7 @@ app.use('/api/holdings', holdingRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/prices', priceRoutes);
 app.use('/api/insights', insightRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/portfolios', analyticsRoutes);
 app.use('/api/exports', exportRoutes);
 app.use('/api/ai', aiRoutes);
 
