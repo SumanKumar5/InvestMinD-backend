@@ -57,7 +57,12 @@ exports.getAnalytics = async (req, res) => {
 
     res.json({
       CAGR: CAGR.toFixed(2) + "%",
-      sectors
+      sectors,
+      totalInvestment: totalInvested,
+      profitLossPercentage: (
+        ((currentValue - totalInvested) / totalInvested) *
+        100
+      ).toFixed(2),
     });
 
   } catch (err) {
