@@ -1,6 +1,8 @@
 const fetchPrice = require('../utils/fetchPrice');
 const axios = require('axios');
 
+const aiCache = new Map();
+
 exports.getAssetInsight = async (req, res) => {
   try {
     const { symbol, quantity, avgBuyPrice } = req.body;
@@ -8,6 +10,17 @@ exports.getAssetInsight = async (req, res) => {
     if (!symbol || !quantity || !avgBuyPrice) {
       return res.status(400).json({ message: 'Missing input values' });
     }
+
+    const cacheKey = `${symbol}_${quantity}_${avgBuyPrice}`;
+    const now = Date.now();
+
+    const cached = aiCache.get(cacheKey);
+    if (cached && now - cached.timestamp < 60000) { 
+      console.log(`💾 [Cache HIT] Gemini insight for ${cacheKey}`);
+      return res.json({ symbol: symbol.toUpperCase(), insight: cached.insight });
+    }
+
+    console.log(`🚀 [Cache MISS] Calling Gemini API for ${cacheKey}`);
 
     const livePrice = await fetchPrice(symbol);
 
@@ -33,6 +46,8 @@ Keep it practical and beginner-friendly.
     );
 
     const insight = response.data.candidates[0].content.parts[0].text;
+    aiCache.set(cacheKey, { insight, timestamp: now });
+
     res.json({ symbol: symbol.toUpperCase(), insight });
 
   } catch (err) {
