@@ -7,20 +7,26 @@
 [![Deployed on DigitalOcean](https://img.shields.io/badge/Deployment-DigitalOcean-blue?logo=digitalocean)](https://www.digitalocean.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-> **InvestMinD** is a smart personal investment tracker backend built with Node.js, Express, and MongoDB. It supports AI-powered insights, live market data, portfolio analytics, and Excel export functionality.
+> **InvestMinD** is a smart personal investment tracker backend built with Node.js, Express, and MongoDB. It supports AI-powered insights, live market data, performance tracking, and Excel export functionality.
 
 ---
 
 ## 🚀 Features
 
 - 🔐 **User Authentication** with secure JWT login/signup
-- 📁 **Portfolio & Holdings Management**
-- 🧮 **Auto-recalculated average buy price** on transactions
-- 📈 **Live stock price fetch** via Twelve Data API
-- 📊 **Profit/Loss %, CAGR, Sector breakdown**
-- 🧠 **Gemini AI-powered investment insight summaries**
-- 📥 **Excel (.xlsx) export** with clean formatting
-- ⚙️ Built for **Docker deployment on DigitalOcean App Platform**
+- 📁 **Portfolio & Holdings Management** with CRUD endpoints
+- 🔄 **Auto-recalculated average buy price** on each transaction
+- 📈 **Live market data fetch** via Twelve Data API (with in-memory caching)
+- 🧠 **Gemini AI-powered insights** per stock and portfolio
+- 📊 **Analytics**:
+  - Total Investment, Current Value, Profit/Loss %
+  - **CAGR (Compound Annual Growth Rate)**
+  - **Best/Worst Performer** analysis
+  - **Holdings Distribution** (Pie/Donut chart data)
+- 🕒 **Time-Series Portfolio Performance** via scheduled snapshot job
+- 📅 **Excel (.xlsx) export** of holdings (clean formatting)
+- 🔐 All routes secured with **JWT middleware**
+- ⚙️ Ready for **Docker deployment** on DigitalOcean App Platform
 
 ---
 
@@ -33,6 +39,7 @@
 | Auth        | JWT, bcrypt |
 | AI Services | Gemini API (Google) |
 | Market Data | Twelve Data API |
+| Scheduling  | node-cron |
 | Export      | ExcelJS |
 | Deployment  | Docker + DigitalOcean App Platform |
 
@@ -42,16 +49,17 @@
 
 ```
 /investmind-backend
-├── /controllers
-├── /models
-├── /routes
-├── /middleware
-├── /utils
-├── Dockerfile
-├── .dockerignore
-├── .env (excluded)
-├── index.js
-└── package.json
+🔹 /controllers
+🔹 /models
+🔹 /routes
+🔹 /middleware
+🔹 /utils
+🔹 /jobs          # Scheduled snapshot logic
+🔹 Dockerfile
+🔹 .dockerignore
+🔹 .env (excluded)
+🔹 index.js
+🔹 package.json
 ```
 
 ---
@@ -70,11 +78,35 @@ TWELVE_API_KEY=your_twelvedata_api_key
 
 ---
 
+## 📈 Snapshot & Performance Monitoring
+
+- A scheduled `node-cron` job takes hourly portfolio snapshots.
+- Historical values are stored in MongoDB via `/models/Snapshot.js`.
+- Frontend can call:
+  ```http
+  GET /api/portfolios/:id/performance?range=24h|7d|30d|all
+  ```
+  to generate portfolio time-series performance charts.
+
+---
+
+## 📊 Advanced Analytics APIs
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/portfolios/:id/analytics` | Summary stats: investment, P/L %, CAGR |
+| `GET /api/portfolios/:id/stocks`    | Stock-wise distribution for donut chart |
+| `GET /api/analytics/:id/best-worst` | Best & worst performer based on gain % |
+| `GET /api/portfolios/:id/performance?range=...` | Time-series portfolio value chart |
+
+---
+
 ## 🚀 Deployment Notes
 
-- Designed for **DigitalOcean App Platform** with Dockerfile
-- Exposes app on port `5000`
-- All sensitive keys should be added in App Platform’s environment section
+- Built for **DigitalOcean App Platform** (Docker)
+- Dockerfile auto-exposes on `PORT=5000`
+- Store API keys in DigitalOcean’s env var settings
+- GitHub Actions / CI support ready (optional)
 
 ---
 
@@ -86,4 +118,4 @@ MIT © [Suman Kumar](https://github.com/SumanKumar5)
 
 ## 🤝 Connect
 
-> Built as a professional capstone project with full-stack scalability in mind.
+> This backend powers a full-stack professional investment dashboard. Designed for performance, scalability, and real-world use cases.

@@ -1,4 +1,3 @@
-
 # 📘 InvestMinD API Documentation
 
 Base URL: `https://investmind-app-c7irq.ondigitalocean.app`
@@ -73,6 +72,24 @@ Base URL: `https://investmind-app-c7irq.ondigitalocean.app`
 
 ---
 
+### GET /api/portfolios/:id/analytics
+- Get total investment, current value, gain/loss %, and CAGR.
+- **Auth Required**
+
+---
+
+### GET /api/portfolios/:id/stocks
+- Get stock-wise distribution (for pie chart).
+- **Auth Required**
+
+---
+
+### GET /api/portfolios/:id/performance?range=24h|7d|30d|all
+- Get portfolio value time-series data.
+- **Auth Required**
+
+---
+
 ## 💼 Holdings
 
 ### POST /api/portfolios/:id/holdings
@@ -135,54 +152,32 @@ Base URL: `https://investmind-app-c7irq.ondigitalocean.app`
 
 ---
 
-### GET /api/analytics/:portfolioId/sector
-- Sector-wise holding distribution.
-- **Auth Required**
-
----
-
-### GET /api/analytics/:portfolioId/cagr
-- CAGR of portfolio.
+### GET /api/analytics/:portfolioId/best-worst
+- Get best and worst performing holdings by % gain/loss.
 - **Auth Required**
 
 ---
 
 ## 📈 Live Price
 
-### POST /api/prices
+### GET /api/price/:symbol
 - Get current price of a symbol.
-- **Auth Required**
-
-**Body:**
-```json
-{
-  "symbol": "AAPL"
-}
-```
+- **No Auth Required**
 
 ---
 
 ## 🤖 AI Insight
 
-### POST /api/insights
+### GET /api/ai/insight/:portfolioId/:symbol
 - Get Gemini-generated insight for a holding.
 - **Auth Required**
-
-**Body:**
-```json
-{
-  "symbol": "AAPL",
-  "portfolioId": "..."
-}
-```
 
 ---
 
 ## 📤 Export
 
-### GET /api/exports/:portfolioId
+### GET /api/exports/portfolios/:portfolioId
 - Download holdings as `.xlsx`.
 - **Auth Required**
 
 ---
-

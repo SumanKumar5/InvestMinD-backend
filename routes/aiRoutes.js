@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const protect = require('../middleware/authMiddleware');
-const { getAssetInsight } = require('../controllers/aiController');
+const { getSmartAssetInsight } = require('../controllers/aiController');
 
-router.post('/ai/asset-summary', protect, getAssetInsight);
+router.get('/ai/insight/:portfolioId/:symbol', protect, getSmartAssetInsight);
 
 module.exports = router;

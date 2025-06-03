@@ -2,28 +2,57 @@ const axios = require('axios');
 
 const priceCache = new Map();
 
+const resolveSymbol = (symbol) => {
+  const upper = symbol.toUpperCase();
+
+  if (['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN'].includes(upper)) {
+    return `${upper}:NASDAQ`;
+  }
+
+  if (['BTC', 'ETH', 'DOGE'].includes(upper)) {
+    return `${upper}/USD`;
+  }
+
+  // Default to Indian stocks
+  if (!symbol.includes('.') && !symbol.includes(':') && !symbol.includes('/')) {
+    return `${symbol}.BSE`;
+  }
+
+  return symbol;
+};
+
 const fetchPrice = async (symbol) => {
-  const cached = priceCache.get(symbol);
+  const resolved = resolveSymbol(symbol);
+  const cached = priceCache.get(resolved);
   const now = Date.now();
 
   if (cached && now - cached.timestamp < 60000) {
-    console.log(`💾 [Cache HIT] Price for ${symbol} served from cache`);
+    console.log(`💾 [Cache HIT] Price for ${resolved} served from cache`);
     return cached.price;
   }
 
-  console.log(`🚀 [Cache MISS] Fetching price for ${symbol} from Twelve Data`);
+  console.log(`🚀 [Cache MISS] Fetching price for ${resolved} from Twelve Data`);
 
-  const url = `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${process.env.TWELVE_API_KEY}`;
-  const response = await axios.get(url);
+  try {
+    const url = `https://api.twelvedata.com/price?symbol=${resolved}&apikey=${process.env.TWELVE_API_KEY}`;
+    const response = await axios.get(url);
 
-  if (response.data.status === 'error') {
-    throw new Error(response.data.message || 'API error');
+    if (response.data.status === 'error') {
+      throw new Error(response.data.message || 'API error');
+    }
+
+    const price = parseFloat(response.data.price);
+
+    if (isNaN(price)) {
+      throw new Error('Invalid price value received');
+    }
+
+    priceCache.set(resolved, { price, timestamp: now });
+    return price;
+  } catch (err) {
+    console.error(`[fetchPrice] ❌ Failed to fetch price for ${resolved}:`, err.message);
+    return 0;
   }
-
-  const price = parseFloat(response.data.price);
-  priceCache.set(symbol, { price, timestamp: now });
-
-  return price;
 };
 
 module.exports = fetchPrice;

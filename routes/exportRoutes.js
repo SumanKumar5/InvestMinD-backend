@@ -3,6 +3,6 @@ const router = express.Router();
 const protect = require('../middleware/authMiddleware');
 const { exportHoldingsToExcel } = require('../controllers/exportController');
 
-router.get('/portfolios/:id/export/excel', protect, exportHoldingsToExcel);
+router.get('/portfolios/:id', protect, exportHoldingsToExcel);
 
 module.exports = router;

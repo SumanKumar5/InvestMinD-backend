@@ -10,6 +10,10 @@ const insightRoutes = require('./routes/insightRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const exportRoutes = require('./routes/exportRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const cron = require('node-cron');
+const takePortfolioSnapshots = require('./jobs/snapshotJob');
+const performanceRoutes = require('./routes/performanceRoutes');
+
 require('dotenv').config();
 
 const app = express();
@@ -29,15 +33,22 @@ app.get('/', (req, res) => {
   res.send("InvestMinD API is running...");
 });
 
+// 🕒 Run every hour at minute 0 (e.g., 1:00, 2:00, 3:00...)
+cron.schedule('0 * * * *', () => {
+  console.log('[CRON] Running hourly snapshot job...');
+  takePortfolioSnapshots();
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/portfolios', portfolioRoutes);
-app.use('/api/holdings', holdingRoutes);
+app.use('/api', holdingRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/prices', priceRoutes);
-app.use('/api/insights', insightRoutes);
+app.use('/api', insightRoutes);
 app.use('/api/portfolios', analyticsRoutes);
 app.use('/api/exports', exportRoutes);
-app.use('/api/ai', aiRoutes);
+app.use('/api', aiRoutes);
+app.use('/api/portfolios', performanceRoutes);
 
 // Start server
 app.listen(PORT, () => {
