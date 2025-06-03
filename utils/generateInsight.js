@@ -7,7 +7,7 @@ const generateInsight = async (formattedPortfolioString) => {
   const now = Date.now();
 
   const cached = insightCache.get(cacheKey);
-  if (cached && now - cached.timestamp < 60000) { 
+  if (cached && now - cached.timestamp < 10 * 60 * 1000) { // 10 mins
     console.log(`💾 [Cache HIT] Portfolio insight from cache`);
     return cached.insight;
   }
@@ -18,7 +18,7 @@ const generateInsight = async (formattedPortfolioString) => {
 
   const prompt = `
 Analyze this user portfolio and give a financial insight in simple terms (200 words max).
-Output should be motivational and suggestive.
+Make the output motivational, insightful, and suggest if diversification or sector focus is needed.
 
 Data:
 ${formattedPortfolioString}
@@ -28,14 +28,19 @@ ${formattedPortfolioString}
     contents: [{ parts: [{ text: prompt }] }]
   };
 
-  const res = await axios.post(endpoint, body, {
-    headers: { 'Content-Type': 'application/json' }
-  });
+  try {
+    const res = await axios.post(endpoint, body, {
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-  const insight = res.data.candidates[0].content.parts[0].text;
-  insightCache.set(cacheKey, { insight, timestamp: now });
+    const insight = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No insight available.';
+    insightCache.set(cacheKey, { insight, timestamp: now });
 
-  return insight;
+    return insight;
+  } catch (err) {
+    console.error(`[generateInsight] ❌ Gemini API Error:`, err.message);
+    return '⚠️ Failed to generate insight at this time. Please try again later.';
+  }
 };
 
 module.exports = generateInsight;

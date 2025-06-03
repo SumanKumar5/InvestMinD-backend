@@ -38,7 +38,7 @@ exports.getPerformance = async (req, res) => {
 
     const formatted = snapshots.map((s) => ({
       timestamp: s.timestamp,
-      value: s.totalValue,
+      value: Number(s.totalValue),
     }));
 
     res.json({ data: formatted });

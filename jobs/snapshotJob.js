@@ -28,7 +28,7 @@ const takePortfolioSnapshots = async () => {
       const snapshot = new Snapshot({
         portfolioId: portfolio._id,
         timestamp: new Date(),
-        totalValue
+        totalValue: Number(totalValue.toFixed(2)) // ✅ enforced numeric type with precision
       });
 
       await snapshot.save();

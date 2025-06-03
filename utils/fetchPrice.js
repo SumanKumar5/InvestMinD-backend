@@ -15,14 +15,15 @@ const resolveSymbol = (symbol) => {
 
   // Default to Indian stocks
   if (!symbol.includes('.') && !symbol.includes(':') && !symbol.includes('/')) {
-    return `${symbol}.BSE`;
+    console.warn(`[resolveSymbol] Defaulting to .BSE for: ${symbol}`);
+    return `${upper}.BSE`;
   }
 
-  return symbol;
+  return upper;
 };
 
 const fetchPrice = async (symbol) => {
-  const resolved = resolveSymbol(symbol);
+  const resolved = resolveSymbol(symbol.trim());
   const cached = priceCache.get(resolved);
   const now = Date.now();
 
@@ -47,8 +48,9 @@ const fetchPrice = async (symbol) => {
       throw new Error('Invalid price value received');
     }
 
-    priceCache.set(resolved, { price, timestamp: now });
-    return price;
+    const rounded = Number(price.toFixed(2));
+    priceCache.set(resolved, { price: rounded, timestamp: now });
+    return rounded;
   } catch (err) {
     console.error(`[fetchPrice] ❌ Failed to fetch price for ${resolved}:`, err.message);
     return 0;

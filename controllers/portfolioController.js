@@ -31,31 +31,28 @@ exports.createPortfolio = async (req, res) => {
 
 // DELETE /portfolios/:id
 exports.deletePortfolio = async (req, res) => {
-    try {
-      const portfolio = await Portfolio.findById(req.params.id);
-  
-      if (!portfolio) {
-        return res.status(404).json({ message: 'Portfolio not found' });
-      }
-  
-      // Convert to string for accurate comparison
-      const portfolioUserId = portfolio.user.toString();
-      const loggedInUserId = req.user._id.toString();
-  
-      if (portfolioUserId !== loggedInUserId) {
-        return res.status(403).json({ message: 'Not authorized to delete this portfolio' });
-      }
-  
-      await Portfolio.findByIdAndDelete(req.params.id);
-      res.json({ message: 'Portfolio deleted successfully' });
-  
-    } catch (err) {
-      console.error('❌ Error deleting portfolio:', err.message);
-      res.status(500).json({ message: 'Server error' });
+  try {
+    const portfolio = await Portfolio.findById(req.params.id);
+
+    if (!portfolio) {
+      return res.status(404).json({ message: 'Portfolio not found' });
     }
-  };
-  
-  exports.getPortfolioStats = async (req, res) => {
+
+    if (portfolio.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to delete this portfolio' });
+    }
+
+    await Portfolio.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Portfolio deleted successfully' });
+
+  } catch (err) {
+    console.error('❌ Error deleting portfolio:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// GET /portfolios/:id/stats
+exports.getPortfolioStats = async (req, res) => {
   try {
     const portfolioId = req.params.id;
 
@@ -77,14 +74,14 @@ exports.deletePortfolio = async (req, res) => {
     }
 
     const profitLoss = currentValue - totalInvested;
-    const profitLossPercent = (profitLoss / totalInvested) * 100;
+    const profitLossPercent = (totalInvested === 0) ? 0 : (profitLoss / totalInvested) * 100;
 
     res.json({
       portfolioId,
-      totalInvested: totalInvested.toFixed(2),
-      currentValue: currentValue.toFixed(2),
-      profitLoss: profitLoss.toFixed(2),
-      profitLossPercent: profitLossPercent.toFixed(2)
+      totalInvested: Number(totalInvested.toFixed(2)),
+      currentValue: Number(currentValue.toFixed(2)),
+      profitLoss: Number(profitLoss.toFixed(2)),
+      profitLossPercent: Number(profitLossPercent.toFixed(2))
     });
 
   } catch (err) {

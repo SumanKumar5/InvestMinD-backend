@@ -13,14 +13,17 @@ exports.addHolding = async (req, res) => {
     }
 
     const { symbol, quantity, avgBuyPrice, currency, notes } = req.body;
+    // Ensure numeric values are numbers
+    const numericQuantity = Number(quantity);
+    const numericAvgBuyPrice = Number(avgBuyPrice);
 
     // 🔄 Check for existing holding
     const existing = await Holding.findOne({ portfolio: portfolio._id, symbol });
 
     if (existing) {
-      const totalQty = existing.quantity + quantity;
+      const totalQty = Number(existing.quantity) + numericQuantity;
       const newAvgPrice =
-        ((existing.avgBuyPrice * existing.quantity) + (avgBuyPrice * quantity)) / totalQty;
+        ((existing.avgBuyPrice * existing.quantity) + (numericAvgBuyPrice * numericQuantity)) / totalQty;
 
       existing.quantity = totalQty;
       existing.avgBuyPrice = newAvgPrice;
@@ -31,12 +34,12 @@ exports.addHolding = async (req, res) => {
       return res.status(200).json(existing);
     }
 
-    // Create new holding if not exists
+    // Create new holding if it doesn't exist
     const holding = await Holding.create({
       portfolio: portfolio._id,
       symbol,
-      quantity,
-      avgBuyPrice,
+      quantity: numericQuantity,
+      avgBuyPrice: numericAvgBuyPrice,
       currency,
       notes
     });
@@ -95,26 +98,32 @@ exports.getHoldingsSummary = async (req, res) => {
 
     const enrichedHoldings = await Promise.all(
       holdings.map(async (h) => {
-        const currentPrice = await getLivePrice(h.symbol);
+        // Ensure stored values are used as numbers
+        const numericQuantity = Number(h.quantity);
+        const numericAvgBuyPrice = Number(h.avgBuyPrice);
 
+        const currentPrice = await getLivePrice(h.symbol);
         let companyName = h.symbol;
         try {
-          const tdRes = await axios.get(`https://api.twelvedata.com/stocks?symbol=${h.symbol}&apikey=${process.env.TWELVE_API_KEY}`);
+          const tdRes = await axios.get(
+            `https://api.twelvedata.com/stocks?symbol=${h.symbol}&apikey=${process.env.TWELVE_API_KEY}`
+          );
           companyName = tdRes.data?.data?.[0]?.name || h.symbol;
         } catch (e) {
           console.warn(`⚠️ Company name fetch failed for ${h.symbol}`);
         }
 
-        const marketValue = h.quantity * currentPrice;
-        const gainLoss = (currentPrice - h.avgBuyPrice) * h.quantity;
-        const gainLossPercent = ((currentPrice - h.avgBuyPrice) / h.avgBuyPrice) * 100;
+        // Calculate with numeric conversions and round using toFixed, then convert back to number
+        const marketValue = Number((numericQuantity * currentPrice).toFixed(2));
+        const gainLoss = Number(((currentPrice - numericAvgBuyPrice) * numericQuantity).toFixed(2));
+        const gainLossPercent = Number((((currentPrice - numericAvgBuyPrice) / numericAvgBuyPrice) * 100).toFixed(2));
 
         return {
           _id: h._id,
           symbol: h.symbol,
           companyName,
-          quantity: h.quantity,
-          avgBuyPrice: h.avgBuyPrice,
+          quantity: numericQuantity,
+          avgBuyPrice: numericAvgBuyPrice,
           currentPrice,
           marketValue,
           gainLoss,

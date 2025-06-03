@@ -17,4 +17,6 @@ const snapshotSchema = new mongoose.Schema({
   }
 });
 
+snapshotSchema.index({ portfolioId: 1, timestamp: 1 });
+
 module.exports = mongoose.model('Snapshot', snapshotSchema);

@@ -6,19 +6,19 @@ exports.addTransaction = async (req, res) => {
   try {
     const holding = await Holding.findById(req.params.id).populate('portfolio');
 
-    // Auth check
     if (!holding || holding.portfolio.user.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Unauthorized or holding not found' });
     }
 
-    const { type, quantity, price } = req.body;
+    // Parse numbers explicitly
+    const type = req.body.type;
+    const quantity = Number(req.body.quantity);
+    const price = Number(req.body.price);
 
-    // Validate input
     if (!['buy', 'sell'].includes(type) || quantity <= 0 || price <= 0) {
       return res.status(400).json({ message: 'Invalid transaction data' });
     }
 
-    // Create transaction
     const transaction = await Transaction.create({
       holding: holding._id,
       type,
@@ -34,14 +34,21 @@ exports.addTransaction = async (req, res) => {
         ((holding.quantity * holding.avgBuyPrice) + (quantity * price)) / totalQty;
 
       holding.quantity = totalQty;
-      holding.avgBuyPrice = parseFloat(newAvgPrice.toFixed(2));
+      holding.avgBuyPrice = Number(newAvgPrice.toFixed(2)); // ensure it's numeric
       await holding.save();
     }
 
     res.status(201).json({
       message: 'Transaction added successfully',
       transaction,
-      updatedHolding: holding
+      updatedHolding: {
+        _id: holding._id,
+        symbol: holding.symbol,
+        quantity: holding.quantity,
+        avgBuyPrice: Number(holding.avgBuyPrice), // ensure numeric
+        currency: holding.currency,
+        notes: holding.notes
+      }
     });
 
   } catch (err) {
@@ -60,7 +67,18 @@ exports.getTransactions = async (req, res) => {
     }
 
     const transactions = await Transaction.find({ holding: req.params.id }).sort({ executedAt: -1 });
-    res.json(transactions);
+
+    // Ensure quantity and price in response are numbers
+    const safeTransactions = transactions.map((tx) => ({
+      _id: tx._id,
+      holding: tx.holding,
+      type: tx.type,
+      quantity: Number(tx.quantity),
+      price: Number(tx.price),
+      executedAt: tx.executedAt
+    }));
+
+    res.json(safeTransactions);
 
   } catch (err) {
     console.error('❌ Get Transactions Error:', err.message);

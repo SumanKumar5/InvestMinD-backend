@@ -21,9 +21,10 @@ exports.getAnalytics = async (req, res) => {
     const holdings = await Holding.find({ portfolio: id });
     if (!holdings.length) {
       return res.json({
-        CAGR: "0.00%",
-        totalInvestment: "$0.00",
-        profitLossPercentage: "0.00%",
+        CAGR: 0,
+        totalInvestment: 0,
+        currentValue: 0,
+        profitLossPercentage: 0
       });
     }
 
@@ -39,20 +40,19 @@ exports.getAnalytics = async (req, res) => {
       currentValue += current;
     }
 
-    // Calculate holding period in years (min: ~1 month)
     const rawYears =
       (Date.now() - new Date(portfolio.createdAt)) /
       (1000 * 60 * 60 * 24 * 365);
     const years = rawYears < 0.08 ? 0.08 : rawYears;
+
     const CAGR = ((currentValue / totalInvested) ** (1 / years) - 1) * 100;
+    const profitLossPercent = ((currentValue - totalInvested) / totalInvested) * 100;
 
     res.json({
-      totalInvestment: `$${totalInvested.toFixed(2)}`,
-      currentValue: `$${currentValue.toFixed(2)}`,
-      profitLossPercentage:
-        (((currentValue - totalInvested) / totalInvested) * 100).toFixed(2) +
-        "%",
-      CAGR: CAGR.toFixed(2) + "%",
+      totalInvestment: Number(totalInvested.toFixed(2)),
+      currentValue: Number(currentValue.toFixed(2)),
+      profitLossPercentage: Number(profitLossPercent.toFixed(2)),
+      CAGR: Number(CAGR.toFixed(2))
     });
   } catch (err) {
     console.error("❌ Analytics error:", err.message);
@@ -99,15 +99,15 @@ exports.getStockDistribution = async (req, res) => {
       stockData.push({
         symbol: h.symbol,
         companyName,
-        marketValue: value,
+        marketValue: value
       });
     }
 
     const distribution = stockData.map((stock) => ({
       symbol: stock.symbol,
       companyName: stock.companyName,
-      marketValue: `$${stock.marketValue.toFixed(2)}`,
-      percentage: ((stock.marketValue / totalValue) * 100).toFixed(2),
+      marketValue: Number(stock.marketValue.toFixed(2)),
+      percentage: Number(((stock.marketValue / totalValue) * 100).toFixed(2))
     }));
 
     res.json(distribution);
@@ -145,7 +145,7 @@ exports.getBestWorstPerformers = async (req, res) => {
       results.push({
         symbol: h.symbol,
         gain: parseFloat(gain.toFixed(2)),
-        percent: parseFloat(percent.toFixed(2)),
+        percent: parseFloat(percent.toFixed(2))
       });
     }
 

@@ -12,6 +12,11 @@ exports.exportHoldingsToExcel = async (req, res) => {
 
     const holdings = await Holding.find({ portfolio: portfolio._id });
 
+    // Prevent exporting an excessively large dataset
+    if (holdings.length > 1000) {
+      return res.status(400).json({ message: 'Too many holdings to export. Please filter your data.' });
+    }
+
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Holdings');
 
@@ -26,7 +31,7 @@ exports.exportHoldingsToExcel = async (req, res) => {
       { header: 'Profit/Loss ($)', key: 'profitLoss', width: 18 }
     ];
 
-    // Style header
+    // Style header row
     sheet.getRow(1).eachCell(cell => {
       cell.font = { bold: true };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -43,7 +48,7 @@ exports.exportHoldingsToExcel = async (req, res) => {
       };
     });
 
-    // Add rows (no blanks, all numbers)
+    // Add data rows
     for (const h of holdings) {
       const livePrice = await fetchPrice(h.symbol);
       const invested = h.quantity * h.avgBuyPrice;
@@ -53,26 +58,27 @@ exports.exportHoldingsToExcel = async (req, res) => {
       const row = sheet.addRow({
         symbol: h.symbol,
         quantity: h.quantity,
-        avgBuyPrice: parseFloat(h.avgBuyPrice.toFixed(2)),
-        livePrice: parseFloat(livePrice.toFixed(2)),
-        invested: parseFloat(invested.toFixed(2)),
-        currentValue: parseFloat(currentValue.toFixed(2)),
-        profitLoss: parseFloat(profitLoss.toFixed(2))
+        avgBuyPrice: Number(h.avgBuyPrice.toFixed(2)),
+        livePrice: Number(livePrice.toFixed(2)),
+        invested: Number(invested.toFixed(2)),
+        currentValue: Number(currentValue.toFixed(2)),
+        profitLoss: Number(profitLoss.toFixed(2))
       });
 
-      // Profit/Loss styling
+      // Style Profit/Loss cell (green if >=0, red if <0)
       const plCell = row.getCell('profitLoss');
       plCell.font = {
         color: { argb: profitLoss >= 0 ? 'FF008000' : 'FFFF0000' },
         bold: true
       };
 
-      // Apply number formatting
+      // Apply number formatting to numeric columns
       ['avgBuyPrice', 'livePrice', 'invested', 'currentValue', 'profitLoss'].forEach((key, idx) => {
-        const cell = row.getCell(idx + 3); // index +3 because 1-based and after symbol & qty
+        const cell = row.getCell(idx + 3); // columns: symbol (1), quantity (2), then these
         cell.numFmt = '#,##0.00';
       });
 
+      // Apply alignment and borders to all cells in the row
       row.eachCell(cell => {
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
         cell.border = {
@@ -84,9 +90,10 @@ exports.exportHoldingsToExcel = async (req, res) => {
       });
     }
 
+    // Set response headers for file download
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=portfolio-${portfolio._id}.xlsx`
+      `attachment; filename=portfolio-${portfolio._id.toString()}.xlsx`
     );
     res.setHeader(
       'Content-Type',
@@ -95,9 +102,8 @@ exports.exportHoldingsToExcel = async (req, res) => {
 
     await workbook.xlsx.write(res);
     res.end();
-
   } catch (err) {
-    console.error("❌ Excel export error:", err.message);
+    console.error('❌ Excel export error:', err.message);
     res.status(500).json({ message: 'Failed to export Excel' });
   }
 };

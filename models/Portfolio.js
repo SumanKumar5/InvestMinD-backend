@@ -8,11 +8,12 @@ const portfolioSchema = new mongoose.Schema({
   },
   name: {
     type: String,
-    required: [true, 'Portfolio name is required']
+    required: [true, 'Portfolio name is required'],
+    trim: true
   },
   type: {
     type: String,
-    enum: ['stocks', 'crypto', 'mutual-funds'],
+    enum: ['stocks', 'crypto', 'mutual-funds', 'etf', 'bonds'],
     default: 'stocks'
   },
   createdAt: {
@@ -21,4 +22,5 @@ const portfolioSchema = new mongoose.Schema({
   }
 });
 
+portfolioSchema.index({ user: 1 });
 module.exports = mongoose.model('Portfolio', portfolioSchema);

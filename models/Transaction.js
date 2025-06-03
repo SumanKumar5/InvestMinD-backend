@@ -25,4 +25,6 @@ const transactionSchema = new mongoose.Schema({
   }
 });
 
+transactionSchema.index({ holding: 1, executedAt: -1 });
+
 module.exports = mongoose.model('Transaction', transactionSchema);

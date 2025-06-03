@@ -4,13 +4,19 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Name is required']
+    required: [true, 'Name is required'],
+    trim: true
   },
   email: {
     type: String,
     required: [true, 'Email is required'],
     unique: true,
-    lowercase: true
+    lowercase: true,
+    trim: true,
+    match: [
+      /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+      'Please enter a valid email'
+    ]
   },
   password: {
     type: String,
@@ -23,7 +29,15 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Encrypt password before saving
+// Prevent returning hashed password in responses
+userSchema.set('toJSON', {
+  transform(doc, ret) {
+    delete ret.password;
+    return ret;
+  }
+});
+
+// Hash password before saving
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
 
@@ -32,7 +46,7 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// Method to compare entered password
+// Compare hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
