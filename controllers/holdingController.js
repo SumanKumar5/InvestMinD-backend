@@ -1,5 +1,6 @@
 const Holding = require('../models/Holding');
 const Portfolio = require('../models/Portfolio');
+const Transaction = require('../models/Transaction');
 const axios = require('axios');
 const getLivePrice = require('../utils/fetchPrice');
 
@@ -33,6 +34,16 @@ exports.addHolding = async (req, res) => {
         if (currency) holding.currency = currency;
         if (notes) holding.notes = notes;
         await holding.save();
+
+        // Log transaction
+        await Transaction.create({
+          holding: holding._id,
+          type: 'buy',
+          quantity: numericQuantity,
+          price: numericAvgBuyPrice,
+          notes
+        });
+
         return res.status(200).json(holding);
       }
 
@@ -43,6 +54,15 @@ exports.addHolding = async (req, res) => {
         }
 
         holding.quantity -= numericQuantity;
+
+        // Log transaction before possible deletion
+        await Transaction.create({
+          holding: holding._id,
+          type: 'sell',
+          quantity: numericQuantity,
+          price: numericAvgBuyPrice,
+          notes
+        });
 
         if (holding.quantity === 0) {
           await holding.deleteOne();
@@ -69,6 +89,15 @@ exports.addHolding = async (req, res) => {
         notes
       });
 
+      // Log transaction
+      await Transaction.create({
+        holding: holding._id,
+        type: 'buy',
+        quantity: numericQuantity,
+        price: numericAvgBuyPrice,
+        notes
+      });
+
       return res.status(201).json(holding);
     }
 
@@ -77,7 +106,6 @@ exports.addHolding = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 
 // GET /portfolios/:id/holdings
 exports.getHoldings = async (req, res) => {
@@ -126,12 +154,12 @@ exports.getHoldingsSummary = async (req, res) => {
 
     const enrichedHoldings = await Promise.all(
       holdings.map(async (h) => {
-        // Ensure stored values are used as numbers
         const numericQuantity = Number(h.quantity);
         const numericAvgBuyPrice = Number(h.avgBuyPrice);
 
         const currentPrice = await getLivePrice(h.symbol);
         let companyName = h.symbol;
+
         try {
           const tdRes = await axios.get(
             `https://api.twelvedata.com/stocks?symbol=${h.symbol}&apikey=${process.env.TWELVE_API_KEY}`
@@ -141,7 +169,6 @@ exports.getHoldingsSummary = async (req, res) => {
           console.warn(`⚠️ Company name fetch failed for ${h.symbol}`);
         }
 
-        // Calculate with numeric conversions and round using toFixed, then convert back to number
         const marketValue = Number((numericQuantity * currentPrice).toFixed(2));
         const gainLoss = Number(((currentPrice - numericAvgBuyPrice) * numericQuantity).toFixed(2));
         const gainLossPercent = Number((((currentPrice - numericAvgBuyPrice) / numericAvgBuyPrice) * 100).toFixed(2));

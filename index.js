@@ -47,7 +47,7 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/portfolios', portfolioRoutes);
 app.use('/api', holdingRoutes);
-app.use('/api/transactions', transactionRoutes);
+app.use('/api/transactions', require('./routes/transactionRoutes'));
 app.use('/api/prices', priceRoutes);
 app.use('/api', insightRoutes);
 app.use('/api/portfolios', analyticsRoutes);
