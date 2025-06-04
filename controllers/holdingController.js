@@ -12,44 +12,72 @@ exports.addHolding = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized or portfolio not found' });
     }
 
-    const { symbol, quantity, avgBuyPrice, currency, notes } = req.body;
-    // Ensure numeric values are numbers
+    const { symbol, quantity, avgBuyPrice, currency, notes, type = 'buy' } = req.body;
     const numericQuantity = Number(quantity);
     const numericAvgBuyPrice = Number(avgBuyPrice);
 
-    // 🔄 Check for existing holding
-    const existing = await Holding.findOne({ portfolio: portfolio._id, symbol });
-
-    if (existing) {
-      const totalQty = Number(existing.quantity) + numericQuantity;
-      const newAvgPrice =
-        ((existing.avgBuyPrice * existing.quantity) + (numericAvgBuyPrice * numericQuantity)) / totalQty;
-
-      existing.quantity = totalQty;
-      existing.avgBuyPrice = newAvgPrice;
-      if (currency) existing.currency = currency;
-      if (notes) existing.notes = notes;
-
-      await existing.save();
-      return res.status(200).json(existing);
+    if (!['buy', 'sell'].includes(type) || numericQuantity <= 0 || numericAvgBuyPrice <= 0) {
+      return res.status(400).json({ message: 'Invalid data' });
     }
 
-    // Create new holding if it doesn't exist
-    const holding = await Holding.create({
-      portfolio: portfolio._id,
-      symbol,
-      quantity: numericQuantity,
-      avgBuyPrice: numericAvgBuyPrice,
-      currency,
-      notes
-    });
+    let holding = await Holding.findOne({ portfolio: portfolio._id, symbol });
 
-    res.status(201).json(holding);
+    if (holding) {
+      if (type === 'buy') {
+        // BUY: Add quantity + recalculate avgBuyPrice
+        const totalQty = holding.quantity + numericQuantity;
+        const newAvgPrice = ((holding.avgBuyPrice * holding.quantity) + (numericAvgBuyPrice * numericQuantity)) / totalQty;
+
+        holding.quantity = totalQty;
+        holding.avgBuyPrice = Number(newAvgPrice.toFixed(2));
+        if (currency) holding.currency = currency;
+        if (notes) holding.notes = notes;
+        await holding.save();
+        return res.status(200).json(holding);
+      }
+
+      if (type === 'sell') {
+        // SELL: Reduce quantity
+        if (numericQuantity > holding.quantity) {
+          return res.status(400).json({ message: 'Sell quantity exceeds available holdings' });
+        }
+
+        holding.quantity -= numericQuantity;
+
+        if (holding.quantity === 0) {
+          await holding.deleteOne();
+          return res.status(200).json({ message: `All ${symbol} sold. Holding deleted.` });
+        }
+
+        await holding.save();
+        return res.status(200).json(holding);
+      }
+
+    } else {
+      // No holding exists
+      if (type === 'sell') {
+        return res.status(400).json({ message: `You don't own any ${symbol} to sell.` });
+      }
+
+      // Create new holding for first-time BUY
+      holding = await Holding.create({
+        portfolio: portfolio._id,
+        symbol,
+        quantity: numericQuantity,
+        avgBuyPrice: numericAvgBuyPrice,
+        currency,
+        notes
+      });
+
+      return res.status(201).json(holding);
+    }
+
   } catch (err) {
     console.error('❌ Add Holding Error:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 // GET /portfolios/:id/holdings
 exports.getHoldings = async (req, res) => {
