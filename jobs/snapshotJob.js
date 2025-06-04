@@ -8,6 +8,7 @@ const takePortfolioSnapshots = async () => {
 
   try {
     const portfolios = await Portfolio.find();
+    let skipped = 0;
 
     for (const portfolio of portfolios) {
       const holdings = await Holding.find({ portfolio: portfolio._id });
@@ -25,17 +26,25 @@ const takePortfolioSnapshots = async () => {
         }
       }
 
+      totalValue = Number(totalValue.toFixed(2));
+
+      if (totalValue === 0) {
+        console.log(`[Snapshot Job] Skipped empty portfolio ${portfolio._id} | Value: 0.00`);
+        skipped++;
+        continue;
+      }
+
       const snapshot = new Snapshot({
         portfolioId: portfolio._id,
         timestamp: new Date(),
-        totalValue: Number(totalValue.toFixed(2)) // ✅ enforced numeric type with precision
+        totalValue
       });
 
       await snapshot.save();
-      console.log(`[Snapshot Job] Snapshot saved for portfolio ${portfolio._id} | Value: ${totalValue.toFixed(2)}`);
+      console.log(`[Snapshot Job] Snapshot saved for portfolio ${portfolio._id} | Value: ${totalValue}`);
     }
 
-    console.log(`[Snapshot Job] Completed.`);
+    console.log(`[Snapshot Job] Completed. Skipped ${skipped} empty portfolios.`);
   } catch (err) {
     console.error(`[Snapshot Job] Error:`, err);
   }
