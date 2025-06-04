@@ -193,3 +193,39 @@ exports.getHoldingsSummary = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// GET /api/holdings/:holdingId
+exports.getHoldingDetails = async (req, res) => {
+  try {
+    const holding = await Holding.findById(req.params.id).populate('portfolio');
+
+    if (!holding || holding.portfolio.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Unauthorized or holding not found' });
+    }
+
+    const currentPrice = await getLivePrice(holding.symbol);
+    let companyName = holding.symbol;
+
+    try {
+      const tdRes = await axios.get(
+        `https://api.twelvedata.com/stocks?symbol=${holding.symbol}&apikey=${process.env.TWELVE_API_KEY}`
+      );
+      companyName = tdRes.data?.data?.[0]?.name || holding.symbol;
+    } catch (e) {
+      console.warn(`⚠️ Company name fetch failed for ${holding.symbol}`);
+    }
+
+    res.json({
+      _id: holding._id,
+      symbol: holding.symbol,
+      companyName,
+      currentPrice,
+      quantity: holding.quantity,
+      avgBuyPrice: holding.avgBuyPrice,
+      notes: holding.notes || null
+    });
+  } catch (err) {
+    console.error('❌ Get Holding Details Error:', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

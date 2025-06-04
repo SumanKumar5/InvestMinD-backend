@@ -3,7 +3,8 @@ const {
   addHolding,
   getHoldings,
   deleteHolding,
-  getHoldingsSummary 
+  getHoldingsSummary,
+  getHoldingDetails 
 } = require('../controllers/holdingController');
 const protect = require('../middleware/authMiddleware');
 
@@ -17,6 +18,7 @@ router.route('/portfolios/:id/summary')
   .get(protect, getHoldingsSummary); 
 
 router.route('/holdings/:id')
+  .get(protect, getHoldingDetails)
   .delete(protect, deleteHolding);
 
 module.exports = router;
