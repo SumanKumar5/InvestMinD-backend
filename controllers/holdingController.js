@@ -3,6 +3,7 @@ const Portfolio = require('../models/Portfolio');
 const Transaction = require('../models/Transaction');
 const axios = require('axios');
 const getLivePrice = require('../utils/fetchPrice');
+const Snapshot = require('../models/Snapshot');
 
 // POST /portfolios/:id/holdings
 exports.addHolding = async (req, res) => {
@@ -42,6 +43,19 @@ exports.addHolding = async (req, res) => {
           quantity: numericQuantity,
           price: numericAvgBuyPrice,
           notes
+        });
+
+        // ✅ Create snapshot after buy
+        const allHoldings = await Holding.find({ portfolio: portfolio._id });
+        let totalValue = 0;
+        for (const h of allHoldings) {
+          const livePrice = await getLivePrice(h.symbol);
+          totalValue += h.quantity * livePrice;
+        }
+        await Snapshot.create({
+          portfolioId: portfolio._id,
+          totalValue,
+          timestamp: new Date()
         });
 
         return res.status(200).json(holding);
@@ -96,6 +110,19 @@ exports.addHolding = async (req, res) => {
         quantity: numericQuantity,
         price: numericAvgBuyPrice,
         notes
+      });
+
+      // ✅ Create snapshot after new buy
+      const allHoldings = await Holding.find({ portfolio: portfolio._id });
+      let totalValue = 0;
+      for (const h of allHoldings) {
+        const livePrice = await getLivePrice(h.symbol);
+        totalValue += h.quantity * livePrice;
+      }
+      await Snapshot.create({
+        portfolioId: portfolio._id,
+        totalValue,
+        timestamp: new Date()
       });
 
       return res.status(201).json(holding);
