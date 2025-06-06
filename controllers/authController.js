@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -8,8 +9,8 @@ const generateToken = (userId) => {
   });
 };
 
-// @desc   Register new user
-// @route  POST /auth/signup
+// @desc   Register new user with email OTP
+// @route  POST /api/auth/signup
 exports.signup = async (req, res) => {
   try {
     const name = req.body.name?.trim();
@@ -20,29 +21,152 @@ exports.signup = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Check if user exists
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ message: 'User already exists' });
     }
 
-    // Create user
-    const user = await User.create({ name, email, password });
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user._id),
+    // Create new unverified user
+    const user = await User.create({
+      name,
+      email,
+      password,
+      emailVerificationCode: otp,
+      emailVerificationExpires: otpExpires
     });
+
+    // Send OTP via email
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    await transporter.sendMail({
+      from: `"InvestMinD" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Verify your email - InvestMinD',
+      text: `Your OTP to verify your email is: ${otp}`
+    });
+
+    return res.status(201).json({
+      message: 'OTP sent to your email. Please verify to complete registration.'
+    });
+
   } catch (err) {
     console.error('❌ Signup Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error during signup' });
+  }
+};
+
+// @desc   Resend OTP to user's email
+// @route  POST /api/auth/resend-otp
+exports.resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email?.toLowerCase().trim() });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ message: 'Email is already verified' });
+    }
+
+    // Cooldown: Allow only once per 60 seconds
+    const now = Date.now();
+    const cooldown = 60 * 1000; // 60 seconds
+
+    if (user.lastOtpSentAt && now - user.lastOtpSentAt.getTime() < cooldown) {
+      const secondsLeft = Math.ceil((cooldown - (now - user.lastOtpSentAt.getTime())) / 1000);
+      return res.status(429).json({
+        message: `Please wait ${secondsLeft} seconds before requesting a new OTP`
+      });
+    }
+
+    // Generate and update new OTP
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailVerificationCode = newOtp;
+    user.emailVerificationExpires = now + 10 * 60 * 1000; // 10 mins
+    user.lastOtpSentAt = new Date(now);
+    await user.save();
+
+    // Send email
+    const transporter = require('nodemailer').createTransport({
+      service: 'Gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      }
+    });
+
+    await transporter.sendMail({
+      from: `"InvestMinD" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Resend OTP - InvestMinD',
+      text: `Your new OTP is: ${newOtp}`,
+    });
+
+    return res.status(200).json({ message: 'OTP resent successfully' });
+
+  } catch (err) {
+    console.error('❌ Resend OTP Error:', err);
+    return res.status(500).json({ message: 'Server error while resending OTP' });
+  }
+};
+
+
+// @desc   Verify email using OTP
+// @route  POST /api/auth/verify-email
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ message: 'Email already verified' });
+    }
+
+    if (
+      user.emailVerificationCode !== otp ||
+      user.emailVerificationExpires < Date.now()
+    ) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    user.emailVerified = true;
+    user.emailVerificationCode = null;
+    user.emailVerificationExpires = null;
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Email verified successfully!',
+      token: generateToken(user._id),
+      _id: user._id,
+      name: user.name,
+      email: user.email
+    });
+
+  } catch (err) {
+    console.error('❌ Email verification error:', err);
+    res.status(500).json({ message: 'Server error during verification' });
   }
 };
 
 // @desc   Login user
-// @route  POST /auth/login
+// @route  POST /api/auth/login
 exports.login = async (req, res) => {
   try {
     const email = req.body.email?.trim().toLowerCase();
@@ -52,20 +176,24 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Find user by email
     const user = await User.findOne({ email });
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    res.json({
+    if (!user.emailVerified) {
+      return res.status(403).json({ message: 'Please verify your email before logging in.' });
+    }
+
+    return res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
-      token: generateToken(user._id),
+      token: generateToken(user._id)
     });
+
   } catch (err) {
     console.error('❌ Login Error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error during login' });
   }
 };
