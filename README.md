@@ -1,4 +1,4 @@
-# InvestMinD Backend 🧠📊
+# 📈 InvestMinD – Backend API
 
 [![Node.js](https://img.shields.io/badge/Node.js-18.x-green?logo=node.js)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express.js-Backend-lightgrey?logo=express)](https://expressjs.com/)
@@ -7,112 +7,148 @@
 [![Deployed on DigitalOcean](https://img.shields.io/badge/Deployment-DigitalOcean-blue?logo=digitalocean)](https://www.digitalocean.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-> **InvestMinD** is a smart personal investment tracker backend built with Node.js, Express, and MongoDB. It supports AI-powered insights, live market data, performance tracking, and Excel export functionality.
+> **InvestMinD** is a full-stack investment portfolio tracker that helps users manage stock/crypto holdings, analyze returns, and gain AI-powered financial insights. This repository contains the **Node.js + Express + MongoDB** backend for the application.
 
 ---
 
 ## 🚀 Features
 
-- 🔐 **User Authentication** with secure JWT login/signup
-- 📁 **Portfolio & Holdings Management** with CRUD endpoints
-- 🔄 **Auto-recalculated average buy price** on each transaction
-- 📈 **Live market data fetch** via Twelve Data API (with in-memory caching)
-- 🧠 **Gemini AI-powered insights** per stock and portfolio
-- 📊 **Analytics**:
-  - Total Investment, Current Value, Profit/Loss %
-  - **CAGR (Compound Annual Growth Rate)**
-  - **Best/Worst Performer** analysis
-  - **Holdings Distribution** (Pie/Donut chart data)
-- 🕒 **Time-Series Portfolio Performance** via scheduled snapshot job
-- 📅 **Excel (.xlsx) export** of holdings (clean formatting)
-- 🔐 All routes secured with **JWT middleware**
-- ⚙️ Ready for **Docker deployment** on DigitalOcean App Platform
+- 🔐 JWT-based authentication with email verification (OTP)
+- 📁 Create & manage multiple investment portfolios
+- 💼 Add/edit/delete stock and crypto holdings
+- 📊 Real-time analytics: CAGR, profit/loss %, asset distribution
+- 📈 Time-series snapshots of portfolio performance
+- 🧠 AI Insights powered by Gemini (Google)
+- 📤 Export holdings to Excel (.xlsx)
+- ⚡ Live price fetch from Twelve Data API
+- 🧪 Secure endpoints with middleware & validations
+- 🐳 Docker-ready for production deployment
+
+---
+
+## 📚 API Documentation
+
+All APIs are prefixed with `/api`.
+
+### 🔐 Auth
+
+| Method | Endpoint         | Description                      |
+|--------|------------------|----------------------------------|
+| POST   | `/auth/signup`   | Register + send OTP              |
+| POST   | `/auth/login`    | Login with email & password      |
+| POST   | `/auth/verify-email` | Verify OTP                 |
+| POST   | `/auth/resend-otp`   | Resend verification OTP     |
+| GET    | `/auth/me`       | Get logged-in user info          |
+
+### 📁 Portfolios
+
+| Method | Endpoint                        | Description                      |
+|--------|----------------------------------|----------------------------------|
+| GET    | `/portfolios`                   | Get all portfolios               |
+| POST   | `/portfolios`                   | Create new portfolio             |
+| DELETE | `/portfolios/:id`               | Delete a portfolio               |
+| GET    | `/portfolios/:id/stats`         | Portfolio summary (P/L, total)   |
+| GET    | `/portfolios/:id/analytics`     | CAGR + current stats             |
+| GET    | `/portfolios/:id/stocks`        | Asset-wise distribution          |
+| GET    | `/portfolios/:id/best-worst`    | Best/worst performers            |
+| GET    | `/portfolios/:id/performance`   | Time-series performance data     |
+
+### 💼 Holdings
+
+| Method | Endpoint                            | Description                          |
+|--------|--------------------------------------|--------------------------------------|
+| POST   | `/portfolios/:id/holdings`           | Add a holding (buy/sell logic)       |
+| GET    | `/portfolios/:id/holdings`           | Get holdings for a portfolio         |
+| GET    | `/portfolios/:id/summary`            | Enriched summary (live prices)       |
+| GET    | `/holdings/:id`                      | Single holding info                  |
+| DELETE | `/holdings/:id`                      | Delete a holding                     |
+
+### 🔁 Transactions
+
+| Method | Endpoint                        | Description                     |
+|--------|----------------------------------|---------------------------------|
+| GET    | `/transactions/holdings/:id`    | Get transaction history         |
+
+### 📉 Prices
+
+| Method | Endpoint               | Description                    |
+|--------|------------------------|--------------------------------|
+| GET    | `/prices/price/:symbol`| Live stock/crypto price        |
+
+### 📤 Exports
+
+| Method | Endpoint                      | Description                  |
+|--------|-------------------------------|------------------------------|
+| GET    | `/exports/portfolios/:id`     | Export holdings to Excel     |
+
+### 🤖 AI Insights
+
+| Method | Endpoint                                | Description                        |
+|--------|------------------------------------------|------------------------------------|
+| GET    | `/insight`                              | Insight for all portfolios         |
+| GET    | `/insight/:portfolioId`                 | Insight for a single portfolio     |
+| GET    | `/ai/insight/:portfolioId/:symbol`      | Insight for one asset              |
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer       | Stack |
-|-------------|-------|
-| Backend     | Node.js, Express.js |
-| Database    | MongoDB Atlas |
-| Auth        | JWT, bcrypt |
-| AI Services | Gemini API (Google) |
-| Market Data | Twelve Data API |
-| Scheduling  | node-cron |
-| Export      | ExcelJS |
-| Deployment  | Docker + DigitalOcean App Platform |
+- **Node.js + Express** – REST API backend
+- **MongoDB + Mongoose** – NoSQL data modeling
+- **JWT** – Auth tokens
+- **Nodemailer** – OTP verification
+- **Twelve Data API** – Real-time prices
+- **Gemini API** – AI-generated investment insights
+- **Docker** – Containerized deployment
 
 ---
 
-## 📁 Folder Structure
+## 🧪 Setup & Run Locally
 
-```
-/investmind-backend
-🔹 /controllers
-🔹 /models
-🔹 /routes
-🔹 /middleware
-🔹 /utils
-🔹 /jobs          # Scheduled snapshot logic
-🔹 Dockerfile
-🔹 .dockerignore
-🔹 .env (excluded)
-🔹 index.js
-🔹 package.json
+```bash
+# Clone the repo
+git clone https://github.com/SumanKumar5/InvestMinD-backend.git
+cd investmind-backend
+
+# Install dependencies
+npm install
+
+# Add environment variables
+cp .env.example .env
+# Then edit .env with your keys
+
+# Start the server
+npm start
 ```
 
 ---
 
-## 📄 .env Example
+## 🔐 Environment Variables (.env)
 
 ```env
 PORT=5000
 MONGO_URI=your_mongodb_uri
-JWT_SECRET=your_secure_jwt_secret
-GEMINI_API_KEY=your_gemini_api_key
-TWELVE_API_KEY=your_twelvedata_api_key
+JWT_SECRET=your_jwt_secret
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_email_password
+GEMINI_API_KEY=your_google_gemini_key
+TWELVE_API_KEY=your_twelve_data_key
 ```
 
-> ⚠️ Do not commit this file. It should be added to `.gitignore`.
+---
+
+## 🐳 Docker Support
+
+```bash
+docker build -t investmind-api .
+docker run -p 5000:5000 investmind-api
+```
 
 ---
 
-## 📈 Snapshot & Performance Monitoring
+## 📎 License
 
-- A scheduled `node-cron` job takes hourly portfolio snapshots.
-- Historical values are stored in MongoDB via `/models/Snapshot.js`.
-- Frontend can call:
-  ```http
-  GET /api/portfolios/:id/performance?range=24h|7d|30d|all
-  ```
-  to generate portfolio time-series performance charts.
-
----
-
-## 📊 Advanced Analytics APIs
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/portfolios/:id/analytics` | Summary stats: investment, P/L %, CAGR |
-| `GET /api/portfolios/:id/stocks`    | Stock-wise distribution for donut chart |
-| `GET /api/analytics/:id/best-worst` | Best & worst performer based on gain % |
-| `GET /api/portfolios/:id/performance?range=...` | Time-series portfolio value chart |
-
----
-
-## 🚀 Deployment Notes
-
-- Built for **DigitalOcean App Platform** (Docker)
-- Dockerfile auto-exposes on `PORT=5000`
-- Store API keys in DigitalOcean’s env var settings
-- GitHub Actions / CI support ready (optional)
-
----
-
-## 📜 License
-
-MIT © [Suman Kumar](https://github.com/SumanKumar5)
+MIT © [[Suman Kumar](https://github.com/SumanKumar5)]
 
 ---
 
