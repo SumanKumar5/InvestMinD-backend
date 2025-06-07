@@ -28,6 +28,10 @@ const holdingSchema = new mongoose.Schema({
     type: String,
     maxlength: 200
   },
+  companyName: {
+    type: String,
+    trim: true 
+  },
   createdAt: {
     type: Date,
     default: Date.now

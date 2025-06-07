@@ -1,10 +1,6 @@
 const Portfolio = require("../models/Portfolio");
 const Holding = require("../models/Holding");
 const fetchPrice = require("../utils/fetchPrice");
-const axios = require("axios");
-
-// In-memory company name cache
-const companyNameCache = new Map();
 
 // GET /api/analytics/:id
 exports.getAnalytics = async (req, res) => {
@@ -82,23 +78,9 @@ exports.getStockDistribution = async (req, res) => {
       const value = h.quantity * price;
       totalValue += value;
 
-      let companyName = companyNameCache.get(h.symbol);
-      if (!companyName) {
-        try {
-          const tdRes = await axios.get(
-            `https://api.twelvedata.com/stocks?symbol=${h.symbol}&apikey=${process.env.TWELVE_API_KEY}`
-          );
-          companyName = tdRes.data?.data?.[0]?.name || h.symbol;
-          companyNameCache.set(h.symbol, companyName);
-        } catch (err) {
-          console.warn(`⚠️ Company name fetch failed for ${h.symbol}`);
-          companyName = h.symbol;
-        }
-      }
-
       stockData.push({
         symbol: h.symbol,
-        companyName,
+        companyName: h.companyName || h.symbol, 
         marketValue: value
       });
     }

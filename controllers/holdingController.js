@@ -26,7 +26,6 @@ exports.addHolding = async (req, res) => {
 
     if (holding) {
       if (type === 'buy') {
-        // BUY: Add quantity + recalculate avgBuyPrice
         const totalQty = holding.quantity + numericQuantity;
         const newAvgPrice = ((holding.avgBuyPrice * holding.quantity) + (numericAvgBuyPrice * numericQuantity)) / totalQty;
 
@@ -36,7 +35,6 @@ exports.addHolding = async (req, res) => {
         if (notes) holding.notes = notes;
         await holding.save();
 
-        // Log transaction
         await Transaction.create({
           holding: holding._id,
           type: 'buy',
@@ -45,13 +43,13 @@ exports.addHolding = async (req, res) => {
           notes
         });
 
-        // ✅ Create snapshot after buy
         const allHoldings = await Holding.find({ portfolio: portfolio._id });
         let totalValue = 0;
         for (const h of allHoldings) {
           const livePrice = await getLivePrice(h.symbol);
           totalValue += h.quantity * livePrice;
         }
+
         await Snapshot.create({
           portfolioId: portfolio._id,
           totalValue,
@@ -62,14 +60,12 @@ exports.addHolding = async (req, res) => {
       }
 
       if (type === 'sell') {
-        // SELL: Reduce quantity
         if (numericQuantity > holding.quantity) {
           return res.status(400).json({ message: 'Sell quantity exceeds available holdings' });
         }
 
         holding.quantity -= numericQuantity;
 
-        // Log transaction before possible deletion
         await Transaction.create({
           holding: holding._id,
           type: 'sell',
@@ -88,22 +84,31 @@ exports.addHolding = async (req, res) => {
       }
 
     } else {
-      // No holding exists
       if (type === 'sell') {
         return res.status(400).json({ message: `You don't own any ${symbol} to sell.` });
       }
 
-      // Create new holding for first-time BUY
+      // New holding creation: fetch and store company name
+      let companyName = symbol;
+      try {
+        const tdRes = await axios.get(
+          `https://api.twelvedata.com/stocks?symbol=${symbol}&apikey=${process.env.TWELVE_API_KEY}`
+        );
+        companyName = tdRes.data?.data?.[0]?.name || symbol;
+      } catch (err) {
+        console.warn(`⚠️ Company name fetch failed for ${symbol}`);
+      }
+
       holding = await Holding.create({
         portfolio: portfolio._id,
         symbol,
         quantity: numericQuantity,
         avgBuyPrice: numericAvgBuyPrice,
         currency,
-        notes
+        notes,
+        companyName 
       });
 
-      // Log transaction
       await Transaction.create({
         holding: holding._id,
         type: 'buy',
@@ -112,13 +117,13 @@ exports.addHolding = async (req, res) => {
         notes
       });
 
-      // ✅ Create snapshot after new buy
       const allHoldings = await Holding.find({ portfolio: portfolio._id });
       let totalValue = 0;
       for (const h of allHoldings) {
         const livePrice = await getLivePrice(h.symbol);
         totalValue += h.quantity * livePrice;
       }
+
       await Snapshot.create({
         portfolioId: portfolio._id,
         totalValue,
@@ -183,18 +188,7 @@ exports.getHoldingsSummary = async (req, res) => {
       holdings.map(async (h) => {
         const numericQuantity = Number(h.quantity);
         const numericAvgBuyPrice = Number(h.avgBuyPrice);
-
         const currentPrice = await getLivePrice(h.symbol);
-        let companyName = h.symbol;
-
-        try {
-          const tdRes = await axios.get(
-            `https://api.twelvedata.com/stocks?symbol=${h.symbol}&apikey=${process.env.TWELVE_API_KEY}`
-          );
-          companyName = tdRes.data?.data?.[0]?.name || h.symbol;
-        } catch (e) {
-          console.warn(`⚠️ Company name fetch failed for ${h.symbol}`);
-        }
 
         const marketValue = Number((numericQuantity * currentPrice).toFixed(2));
         const gainLoss = Number(((currentPrice - numericAvgBuyPrice) * numericQuantity).toFixed(2));
@@ -203,7 +197,7 @@ exports.getHoldingsSummary = async (req, res) => {
         return {
           _id: h._id,
           symbol: h.symbol,
-          companyName,
+          companyName: h.companyName || h.symbol, // ✅ read from DB
           quantity: numericQuantity,
           avgBuyPrice: numericAvgBuyPrice,
           currentPrice,
@@ -231,21 +225,11 @@ exports.getHoldingDetails = async (req, res) => {
     }
 
     const currentPrice = await getLivePrice(holding.symbol);
-    let companyName = holding.symbol;
-
-    try {
-      const tdRes = await axios.get(
-        `https://api.twelvedata.com/stocks?symbol=${holding.symbol}&apikey=${process.env.TWELVE_API_KEY}`
-      );
-      companyName = tdRes.data?.data?.[0]?.name || holding.symbol;
-    } catch (e) {
-      console.warn(`⚠️ Company name fetch failed for ${holding.symbol}`);
-    }
 
     res.json({
       _id: holding._id,
       symbol: holding.symbol,
-      companyName,
+      companyName: holding.companyName || holding.symbol, // ✅ read from DB
       currentPrice,
       quantity: holding.quantity,
       avgBuyPrice: holding.avgBuyPrice,

@@ -4,21 +4,6 @@ const priceCache = new Map();
 
 const resolveSymbol = (symbol) => {
   const upper = symbol.toUpperCase();
-
-  if (['AAPL', 'MSFT', 'GOOGL', 'TSLA', 'AMZN'].includes(upper)) {
-    return `${upper}:NASDAQ`;
-  }
-
-  if (['BTC', 'ETH', 'DOGE'].includes(upper)) {
-    return `${upper}/USD`;
-  }
-
-  // Default to Indian stocks
-  if (!symbol.includes('.') && !symbol.includes(':') && !symbol.includes('/')) {
-    console.warn(`[resolveSymbol] Defaulting to .BSE for: ${symbol}`);
-    return `${upper}.BSE`;
-  }
-
   return upper;
 };
 
@@ -27,7 +12,7 @@ const fetchPrice = async (symbol) => {
   const cached = priceCache.get(resolved);
   const now = Date.now();
 
-  if (cached && now - cached.timestamp < 60000) {
+  if (cached && now - cached.timestamp < 300000) {
     console.log(`💾 [Cache HIT] Price for ${resolved} served from cache`);
     return cached.price;
   }
