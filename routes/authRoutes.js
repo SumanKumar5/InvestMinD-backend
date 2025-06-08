@@ -3,7 +3,9 @@ const {
   signup,
   login,
   verifyEmail,
-  resendOtp
+  resendOtp,
+  requestPasswordReset,
+  resetPassword
 } = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
 
@@ -14,6 +16,8 @@ router.post('/signup', signup);
 router.post('/login', login);
 router.post('/verify-email', verifyEmail);
 router.post('/resend-otp', resendOtp);
+router.post('/request-reset', requestPasswordReset); 
+router.post('/reset-password', resetPassword);      
 
 // Protected route example
 router.get('/me', protect, (req, res) => {
