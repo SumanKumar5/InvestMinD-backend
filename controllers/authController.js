@@ -9,6 +9,15 @@ const generateToken = (userId) => {
   });
 };
 
+// Setup transporter once
+const transporter = nodemailer.createTransport({
+  service: "Gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
 // @desc   Register new user with email OTP
 // @route  POST /api/auth/signup
 exports.signup = async (req, res) => {
@@ -27,7 +36,7 @@ exports.signup = async (req, res) => {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const otpExpires = Date.now() + 10 * 60 * 1000;
 
     const user = await User.create({
       name,
@@ -38,19 +47,22 @@ exports.signup = async (req, res) => {
       lastOtpSentAt: new Date(),
     });
 
-    const transporter = nodemailer.createTransport({
-      service: "Gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
     await transporter.sendMail({
       from: `"InvestMinD" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Verify your email - InvestMinD",
-      text: `Your OTP to verify your email is: ${otp}`,
+      subject: "Welcome to InvestMinD – Verify Your Email",
+      text: `Hi ${name},
+
+Thank you for signing up with InvestMinD – your smart companion for tracking and optimizing your investments.
+
+To complete your registration, please verify your email address using the OTP below:
+
+🔐 OTP: ${otp}
+
+This code is valid for 10 minutes. If you didn’t sign up, please ignore this email.
+
+Happy Investing,
+Team InvestMinD`,
     });
 
     return res.status(201).json({
@@ -95,19 +107,20 @@ exports.resendOtp = async (req, res) => {
     user.lastOtpSentAt = new Date(now);
     await user.save();
 
-    const transporter = nodemailer.createTransport({
-      service: "Gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
     await transporter.sendMail({
       from: `"InvestMinD" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Resend OTP - InvestMinD",
-      text: `Your new OTP is: ${newOtp}`,
+      subject: "Your New OTP for InvestMinD Email Verification",
+      text: `Hi ${user.name},
+
+As requested, here is your new OTP to verify your email address on InvestMinD:
+
+🔐 OTP: ${newOtp}
+
+This code is valid for 10 minutes. If you didn’t request this OTP, you can safely ignore this email.
+
+Thanks for being part of the InvestMinD journey!
+Team InvestMinD`,
     });
 
     return res.status(200).json({ message: "OTP resent successfully" });
@@ -177,7 +190,6 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Incorrect password. Please try again or reset your password." });
     }
 
-    // Auto-resend OTP if email is not verified
     if (!user.emailVerified) {
       const now = Date.now();
       const cooldown = 60 * 1000;
@@ -189,19 +201,24 @@ exports.login = async (req, res) => {
         user.lastOtpSentAt = new Date(now);
         await user.save();
 
-        const transporter = nodemailer.createTransport({
-          service: "Gmail",
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-          },
-        });
-
         await transporter.sendMail({
           from: `"InvestMinD" <${process.env.EMAIL_USER}>`,
           to: user.email,
-          subject: "Verify your email - InvestMinD",
-          text: `Your OTP to verify your email is: ${otp}`,
+          subject: "Complete Your Email Verification – InvestMinD",
+          text: `Hi ${user.name},
+
+We noticed you're trying to log in, but your email isn’t verified yet.
+
+To access your account, please verify your email using the OTP below:
+
+🔐 OTP: ${otp}
+
+This code is valid for 10 minutes. Once verified, you'll be able to access all features of InvestMinD.
+
+Need help? Just reply to this email.
+
+Best regards,
+Team InvestMinD`,
         });
       }
 
@@ -240,28 +257,29 @@ exports.requestPasswordReset = async (req, res) => {
       return res.status(404).json({ message: "No account found with that email" });
     }
 
-    // Generate OTP and expiry
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const otpExpires = Date.now() + 10 * 60 * 1000;
 
     user.resetPasswordOtp = otp;
     user.resetPasswordExpires = otpExpires;
     await user.save();
 
-    // Send OTP email
-    const transporter = nodemailer.createTransport({
-      service: "Gmail",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
     await transporter.sendMail({
       from: `"InvestMinD" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: "Reset your password - InvestMinD",
-      text: `Your password reset code is: ${otp}`,
+      subject: "Reset Your InvestMinD Password Securely",
+      text: `Hi ${user.name},
+
+You’ve requested to reset your password for InvestMinD.
+
+Use the OTP below to reset your password:
+
+🔐 OTP: ${otp}
+
+This code is valid for 10 minutes. If you didn’t request a password reset, please secure your account or contact us immediately.
+
+Stay secure,
+Team InvestMinD`,
     });
 
     return res.json({ message: "Password reset code sent to your email." });
@@ -293,11 +311,27 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Update password
     user.password = newPassword;
     user.resetPasswordOtp = null;
     user.resetPasswordExpires = null;
     await user.save();
+
+    // Optional: Confirm email
+    await transporter.sendMail({
+      from: `"InvestMinD" <${process.env.EMAIL_USER}>`,
+      to: user.email,
+      subject: "Your InvestMinD Password Has Been Changed",
+      text: `Hi ${user.name},
+
+Your password has been successfully updated for your InvestMinD account.
+
+If this was not you, please reset your password immediately or contact our support team to secure your account.
+
+Thank you for staying secure with InvestMinD.
+
+Warm regards,
+Team InvestMinD`,
+    });
 
     return res.json({ message: "Password has been reset successfully." });
   } catch (err) {
