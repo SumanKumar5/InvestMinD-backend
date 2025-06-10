@@ -8,6 +8,8 @@ const resolveSymbol = (symbol) => {
   return symbol.trim().toUpperCase();
 };
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const getExchangeRate = async (from, to) => {
   const key = `${from}_${to}`;
   const cached = fxCache.get(key);
@@ -53,26 +55,39 @@ const fetchPrice = async (symbol) => {
 
   console.log(`🚀 [Cache MISS] Fetching price for ${resolved} from ${baseUrl}`);
 
-  try {
-    const response = await axios.get(url);
-    let price = Number(response.data.price);
+  let attempt = 0;
 
-    // Convert INR to USD for Indian stocks
-    if (resolved.endsWith(".BSE") || resolved.endsWith(".NS")) {
-      const rate = await getExchangeRate("INR", "USD");
-      price = price * rate;
+  while (attempt < 3) {
+    try {
+      const response = await axios.get(url);
+      let price = Number(response.data.price);
+
+      if (resolved.endsWith(".BSE") || resolved.endsWith(".NS")) {
+        const rate = await getExchangeRate("INR", "USD");
+        price *= rate;
+      }
+
+      const rounded = Number(price.toFixed(2));
+      priceCache.set(resolved, { price: rounded, timestamp: now });
+      return rounded;
+    } catch (err) {
+      attempt++;
+      console.warn(`[fetchPrice] Attempt ${attempt} failed for ${resolved}: ${err.message}`);
+
+      // Stop retrying on 4xx client errors (e.g. invalid symbol)
+      if (err.response && err.response.status >= 400 && err.response.status < 500) {
+        break;
+      }
+
+      // Exponential backoff: 200ms → 400ms → 800ms
+      await delay(200 * 2 ** (attempt - 1));
     }
-
-    const rounded = Number(price.toFixed(2));
-    priceCache.set(resolved, { price: rounded, timestamp: now });
-    return rounded;
-  } catch (err) {
-    console.error(
-      `[fetchPrice] ❌ Failed to fetch price for ${resolved}:`,
-      err.message
-    );
-    return 0;
   }
+
+  // Final failure after retries
+  const errorMessage = `Sorry, price for ${resolved} is not available right now. Try again later.`;
+  console.error(`[fetchPrice] ❌ ${errorMessage}`);
+  throw new Error(errorMessage);
 };
 
 module.exports = fetchPrice;
