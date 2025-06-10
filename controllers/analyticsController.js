@@ -126,6 +126,7 @@ exports.getBestWorstPerformers = async (req, res) => {
 
       results.push({
         symbol: h.symbol,
+        companyName: h.companyName,
         gain: parseFloat(gain.toFixed(2)),
         percent: parseFloat(percent.toFixed(2))
       });
