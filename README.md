@@ -1,4 +1,4 @@
-# 📈 InvestMinD – Backend API
+# InvestMinD – Backend API
 
 [![Node.js](https://img.shields.io/badge/Node.js-18.x-green?logo=node.js)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express.js-Backend-lightgrey?logo=express)](https://expressjs.com/)
