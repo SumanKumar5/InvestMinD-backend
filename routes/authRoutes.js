@@ -8,6 +8,7 @@ const {
   resetPassword
 } = require('../controllers/authController');
 const protect = require('../middleware/authMiddleware');
+const { googleLogin } = require("../controllers/authController");
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.post('/verify-email', verifyEmail);
 router.post('/resend-otp', resendOtp);
 router.post('/request-reset', requestPasswordReset); 
 router.post('/reset-password', resetPassword);      
+router.post('/google', googleLogin);
 
 // Protected route example
 router.get('/me', protect, (req, res) => {

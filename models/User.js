@@ -18,11 +18,23 @@ const userSchema = new mongoose.Schema({
       "Please enter a valid email",
     ],
   },
-  password: {
-    type: String,
-    required: [true, "Password is required"],
-    minlength: 6,
+password: {
+  type: String,
+  required: function () {
+    return !this.isGoogleUser;
   },
+  minlength: 6,
+},
+
+  googleId: {
+  type: String,
+  unique: true,
+  sparse: true,
+},
+isGoogleUser: {
+  type: Boolean,
+  default: false,
+},
   emailVerified: {
     type: Boolean,
     default: false,

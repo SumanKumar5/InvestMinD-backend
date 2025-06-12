@@ -1,6 +1,8 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const { OAuth2Client } = require("google-auth-library");
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -32,6 +34,12 @@ exports.signup = async (req, res) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      if (existingUser.isGoogleUser) {
+        return res.status(409).json({
+          message:
+            "This email is registered via Google. Please use Google Sign-In.",
+        });
+      }
       return res.status(409).json({ message: "User already exists" });
     }
 
@@ -66,7 +74,8 @@ Team InvestMinD`,
     });
 
     return res.status(201).json({
-      message: "OTP sent to your email. Please verify to complete registration.",
+      message:
+        "OTP sent to your email. Please verify to complete registration.",
     });
   } catch (err) {
     console.error("❌ Signup Error:", err);
@@ -126,7 +135,9 @@ Team InvestMinD`,
     return res.status(200).json({ message: "OTP resent successfully" });
   } catch (err) {
     console.error("❌ Resend OTP Error:", err);
-    return res.status(500).json({ message: "Server error while resending OTP" });
+    return res
+      .status(500)
+      .json({ message: "Server error while resending OTP" });
   }
 };
 
@@ -178,23 +189,42 @@ exports.login = async (req, res) => {
     const password = req.body.password;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "This email is not registered. Please sign up." });
+      return res
+        .status(404)
+        .json({ message: "This email is not registered. Please sign up." });
+    }
+
+    if (user.isGoogleUser) {
+      return res.status(400).json({
+        message:
+          "This email is registered via Google Sign-In. Please Sign in with Google.",
+      });
     }
 
     if (!(await user.matchPassword(password))) {
-      return res.status(401).json({ message: "Incorrect password. Please try again or reset your password." });
+      return res
+        .status(401)
+        .json({
+          message:
+            "Incorrect password. Please try again or reset your password.",
+        });
     }
 
     if (!user.emailVerified) {
       const now = Date.now();
       const cooldown = 60 * 1000;
 
-      if (!user.lastOtpSentAt || now - user.lastOtpSentAt.getTime() >= cooldown) {
+      if (
+        !user.lastOtpSentAt ||
+        now - user.lastOtpSentAt.getTime() >= cooldown
+      ) {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         user.emailVerificationCode = otp;
         user.emailVerificationExpires = now + 10 * 60 * 1000;
@@ -223,7 +253,8 @@ Team InvestMinD`,
       }
 
       return res.status(403).json({
-        message: "Your email is not verified. A new OTP has been sent to your inbox.",
+        message:
+          "Your email is not verified. A new OTP has been sent to your inbox.",
         needsVerification: true,
         email: user.email,
       });
@@ -254,7 +285,16 @@ exports.requestPasswordReset = async (req, res) => {
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
-      return res.status(404).json({ message: "No account found with that email" });
+      return res
+        .status(404)
+        .json({ message: "No account found with that email" });
+    }
+
+    if (user.isGoogleUser) {
+      return res.status(400).json({
+        message:
+          "This account uses Google Sign-In. Please Sign in With Google.",
+      });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -285,7 +325,66 @@ Team InvestMinD`,
     return res.json({ message: "Password reset code sent to your email." });
   } catch (err) {
     console.error("❌ Request Password Reset Error:", err);
-    return res.status(500).json({ message: "Server error while requesting password reset." });
+    return res
+      .status(500)
+      .json({ message: "Server error while requesting password reset." });
+  }
+};
+
+// @desc   Google Sign-In or Sign-Up
+// @route  POST /api/auth/google
+exports.googleLogin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name } = payload;
+
+    if (!email) {
+      return res.status(400).json({ message: "Invalid Google account" });
+    }
+
+    let user = await User.findOne({ email });
+
+    // First-time Google user
+    if (!user) {
+      user = await User.create({
+        name,
+        email,
+        googleId,
+        isGoogleUser: true,
+        emailVerified: true, // skip verification for Google users
+      });
+    }
+
+    // If user exists but not marked as Google user
+    if (user && !user.isGoogleUser && !user.googleId) {
+      return res.status(400).json({
+        message:
+          "This email is registered via password. Please login using your password.",
+      });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    return res.json({
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Google Login Error:", err.message, err);
+    return res.status(401).json({ message: "Google authentication failed" });
   }
 };
 
@@ -302,6 +401,13 @@ exports.resetPassword = async (req, res) => {
     const user = await User.findOne({ email: email.trim().toLowerCase() });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isGoogleUser) {
+      return res.status(400).json({
+        message:
+          "This account uses Google Sign-In. You cannot reset the password.",
+      });
     }
 
     if (
@@ -336,6 +442,8 @@ Team InvestMinD`,
     return res.json({ message: "Password has been reset successfully." });
   } catch (err) {
     console.error("❌ Reset Password Error:", err);
-    return res.status(500).json({ message: "Server error during password reset." });
+    return res
+      .status(500)
+      .json({ message: "Server error during password reset." });
   }
 };
